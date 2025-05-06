@@ -1,0 +1,49 @@
+name: Build Bookmarklet
+
+on:                     # Change this if I want to trigger
+  push:                 # this build via a push to a branch
+    branches: [ main ]  # other than main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out module repo
+      uses: actions/checkout@v4
+
+    - name: Read build.config
+      id: config
+      run: |
+        . build.config
+        echo "repo=$selector_repo" >> $GITHUB_OUTPUT
+        echo "branch=$selector_branch" >> $GITHUB_OUTPUT
+        echo "path=$selector_path" >> $GITHUB_OUTPUT
+
+    - name: Fetch ${{ steps.config.outputs.path }} from ${{ steps.config.outputs.repo }}
+      run: |
+        mkdir -p src
+        curl -L -o src/Selector.js https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/${{ steps.config.outputs.branch }}/${{ steps.config.outputs.path }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install esbuild
+      run: npm install esbuild
+
+    - name: Bundle and minify
+      run: |
+        mkdir -p dist
+        npx esbuild src/Main.js --bundle --minify --outfile=dist/bookmarklet.raw.js
+        echo -n "javascript:" > dist/bookmarklet.txt
+        node -e "process.stdout.write(encodeURIComponent(require('fs').readFileSync('dist/bookmarklet.raw.js', 'utf8')))" >> dist/bookmarklet.txt
+
+    - name: Commit and push bookmarklet
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add dist/
+        git commit -m "Auto-build bookmarklet" || echo "No changes"
+        git push
