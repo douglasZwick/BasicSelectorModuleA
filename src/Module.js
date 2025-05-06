@@ -1,4 +1,4 @@
-export function Start()
+export function ProcessElement(element)
 {
-  console.log("Selector module A loaded!");
+  console.log("Processing ", element, " from Module A");
 }
